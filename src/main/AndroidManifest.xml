@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Network permissions for APK downloads -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Allow the system package installer to be invoked for OTA APK updates -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- Android 11+ package visibility: the installer intent resolves to the
+         system package installer, which must be visible to the app. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="application/vnd.android.package-archive" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.INSTALL_PACKAGE" />
+        </intent>
+    </queries>
+
+    <application
+        android:name=".App"
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        tools:ignore="MissingApplicationIcon"
+        tools:targetApi="31">
+
+        <!--
+          The app is headless: there is no launcher Activity and no activity
+          entry point at all. Boot and package replacement only restore the
+          persisted JobScheduler trigger. The uninstall confirmation moved to
+          the machine Settings host; the app never initiates a removal.
+          MainActivity and its LAUNCHER intent-filter were removed.
+        -->
+
+        <!-- JobScheduler is the only periodic OTA entry point. It is private
+             and currently fails closed until the product release protocol is
+             supplied by the product repository and daemon. -->
+        <service
+            android:name=".OtaJobService"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <service
+            android:name=".ClusterJobService"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <receiver
+            android:name=".ClusterWakeReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <!-- BOOT_COMPLETED is delivered by the system; Android 9 permits
+             system-sent broadcasts to a non-exported manifest receiver. -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Root recovery restores the OTA trigger after package re-enable.
+             Android enforces the same system-only permission as the job
+             service; this receiver never changes the startup mode. -->
+        <receiver
+            android:name=".SchedulerRecoveryReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <!-- Protected broadcast delivered only to the replaced package. -->
+        <receiver
+            android:name=".PackageReplacedReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Non-path, descriptor-bound one-shot APK authority. A grant is
+             readable only by the exact platform-signed installer UID selected
+             by the PackageInstaller handoff; no filesystem subtree is exposed
+             or reopened. -->
+        <provider
+            android:name=".ota.DescriptorBoundApkProvider"
+            android:authorities="ru.voboost.apk-share"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+
+    </application>
+
+</manifest>

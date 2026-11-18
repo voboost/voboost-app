@@ -1,0 +1,10 @@
+// Source: AOSP platform/frameworks/base android-9.0.0_r61
+// core/java/android/app/ActivityManager.java, checkComponentPermission().
+final int appId = UserHandle.getAppId(uid);
+if (appId == Process.ROOT_UID || appId == Process.SYSTEM_UID) {
+    return PackageManager.PERMISSION_GRANTED;
+}
+if (owningUid >= 0 && UserHandle.isSameApp(uid, owningUid)) {
+    return PackageManager.PERMISSION_GRANTED;
+}
+return AppGlobals.getPackageManager().checkUidPermission(permission, uid);
